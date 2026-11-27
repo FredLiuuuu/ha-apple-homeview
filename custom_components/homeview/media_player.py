@@ -27,6 +27,7 @@ from .const import (
     ATTR_OUTPUT_IDS,
     CONF_SPEAKERS,
     DOMAIN,
+    SERVICE_READD_MEMBERS,
     SERVICE_REMOVE_MEMBERS,
     SERVICE_SET_OUTPUTS,
 )
@@ -64,6 +65,11 @@ async def async_setup_entry(
         SERVICE_REMOVE_MEMBERS,
         {vol.Required("group_members"): cv.entity_ids},
         "async_remove_members",
+    )
+    platform.async_register_entity_service(
+        SERVICE_READD_MEMBERS,
+        {vol.Required("group_members"): cv.entity_ids},
+        "async_readd_members",
     )
     platform.async_register_entity_service(
         SERVICE_SET_OUTPUTS,
@@ -324,6 +330,19 @@ class HomeViewMediaPlayer(MediaPlayerEntity, PushListener, AudioListener):
         if gone:
             await self._atv.audio.remove_output_devices(*gone)
             self._conn.expect_change({}, gone)
+
+    async def async_readd_members(self, group_members: list[str]) -> None:
+        """Send the add even for speakers HomeView still lists.
+
+        For a receiver that rebooted: HomeView may keep listing it for a while,
+        so media_player.join would skip it. Nothing is removed, so the other
+        speakers in the group keep playing.
+        """
+        ids = self._ids_for(group_members)
+        if ids:
+            await self._atv.audio.add_output_devices(*ids)
+            rev = {v: k for k, v in self._speakers.items()}
+            self._conn.expect_change({i: rev.get(i, i) for i in ids}, [])
 
     async def async_set_outputs(self, output_ids: list[str]) -> None:
         current = {d.identifier for d in self._outputs()}

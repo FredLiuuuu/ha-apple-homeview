@@ -23,5 +23,6 @@ PENDING_HOLD = 90  # seconds a change we made is shown before HomeView confirms 
 CONFIRM_DELAYS = (5, 20, 45, 80, 100)  # background re-reads after a change
 
 SERVICE_REMOVE_MEMBERS = "remove_members"
+SERVICE_READD_MEMBERS = "readd_members"
 SERVICE_SET_OUTPUTS = "set_outputs"
 ATTR_OUTPUT_IDS = "output_ids"

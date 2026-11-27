@@ -12,17 +12,23 @@
       },
       "pick": {
         "title": "Choose a HomeView",
-        "data": { "identifier": "HomeView" }
+        "data": {
+          "identifier": "HomeView"
+        }
       },
       "pair": {
         "title": "Enter the PIN",
         "description": "A 4-digit PIN is now shown on {name}. Enter it here.",
-        "data": { "pin": "PIN" }
+        "data": {
+          "pin": "PIN"
+        }
       },
       "file": {
         "title": "Import credentials",
         "description": "Path to a file that holds AirPlay credentials for this HomeView (one line).",
-        "data": { "credentials_file": "Credentials file" }
+        "data": {
+          "credentials_file": "Credentials file"
+        }
       }
     },
     "error": {
@@ -43,7 +49,9 @@
       "init": {
         "title": "AirPlay speakers",
         "description": "Pick the media_player entity for each AirPlay output, so media_player.join and homeview.remove_members can use it. Extra lines: entity_id = output id.",
-        "data": { "extra": "Extra mappings" }
+        "data": {
+          "extra": "Extra mappings"
+        }
       }
     }
   },
@@ -60,14 +68,30 @@
       "name": "Remove speakers",
       "description": "Remove AirPlay speakers from the group HomeView is playing to.",
       "fields": {
-        "group_members": { "name": "Speakers", "description": "media_player entities mapped in the options." }
+        "group_members": {
+          "name": "Speakers",
+          "description": "media_player entities mapped in the options."
+        }
+      }
+    },
+    "readd_members": {
+      "name": "Re-add speakers",
+      "description": "Send an add for AirPlay speakers even if HomeView still lists them (for a speaker that rebooted). Removes nothing.",
+      "fields": {
+        "group_members": {
+          "name": "Speakers",
+          "description": "media_player entities mapped in the options."
+        }
       }
     },
     "set_outputs": {
       "name": "Set outputs",
       "description": "Set HomeView's AirPlay outputs to exactly these output-device ids.",
       "fields": {
-        "output_ids": { "name": "Output ids", "description": "AirPlay output-device ids (see the airplay_outputs attribute)." }
+        "output_ids": {
+          "name": "Output ids",
+          "description": "AirPlay output-device ids (see the airplay_outputs attribute)."
+        }
       }
     }
   }

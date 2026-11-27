@@ -10,6 +10,18 @@ remove_members:
         entity:
           domain: media_player
           multiple: true
+readd_members:
+  target:
+    entity:
+      integration: homeview
+      domain: media_player
+  fields:
+    group_members:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
 set_outputs:
   target:
     entity:

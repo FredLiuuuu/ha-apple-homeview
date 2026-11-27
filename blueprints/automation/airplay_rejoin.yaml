@@ -84,6 +84,20 @@ blueprint:
           min: 0
           max: 60
           unit_of_measurement: s
+    readd_wait_seconds:
+      name: Direct re-add first
+      description: >
+        First try `homeview.readd_members`, which sends the add even if the
+        leader still lists the rebooted receiver and removes nothing, so the
+        other speakers keep playing. Wait up to this long for the receiver to
+        play. If it does not, fall back to remove (if needed) and join. Set 0
+        to skip the direct re-add (use 0 if the leader is not a HomeView).
+      default: 8
+      selector:
+        number:
+          min: 0
+          max: 60
+          unit_of_measurement: s
     drop_wait_seconds:
       name: Wait for the leader to drop the stale receiver
       description: >
@@ -121,6 +135,7 @@ variables:
   in_group_helper: !input in_group_helper
   left_at_helper: !input left_at_helper
   grace_seconds: !input grace_seconds
+  readd_wait_seconds: !input readd_wait_seconds
   tries: !input tries
 
 trigger:
@@ -187,6 +202,33 @@ action:
       # Already back and playing (e.g. a second trigger for the same reboot).
       - condition: template
         value_template: "{{ not is_state(receiver, 'playing') }}"
+      # Direct re-add: nothing is removed, so the rest of the group is untouched.
+      - if:
+          - condition: template
+            value_template: "{{ readd_wait_seconds | int > 0 }}"
+        then:
+          - service: homeview.readd_members
+            continue_on_error: true
+            target:
+              entity_id: !input leader
+            data:
+              group_members:
+                - !input receiver
+          - wait_template: "{{ is_state(receiver, 'playing') }}"
+            timeout:
+              seconds: !input readd_wait_seconds
+            continue_on_timeout: true
+          - if:
+              - condition: template
+                value_template: "{{ is_state(receiver, 'playing') }}"
+            then:
+              - service: logbook.log
+                data:
+                  name: AirPlay rejoin
+                  entity_id: !input receiver
+                  message: "Re-added to the group after a drop: ok (direct re-add, nothing removed)"
+              - stop: Receiver is back
+      # Fallback: let the leader drop the stale receiver, remove it if needed, join.
       - if:
           - condition: template
             value_template: "{{ receiver in (state_attr(leader, 'group_members') or []) }}"
@@ -227,5 +269,5 @@ action:
           name: AirPlay rejoin
           entity_id: !input receiver
           message: >
-            {{ 'Re-added to the group after a drop: ok' if is_state(receiver, 'playing')
+            {{ 'Re-added to the group after a drop: ok (fallback remove + join)' if is_state(receiver, 'playing')
                else 'Re-add after a drop FAILED' }}

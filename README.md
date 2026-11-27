@@ -18,6 +18,8 @@ AirPlay 2 receivers) in the group HomeView is playing to.
 - **AirPlay 2 group control**:
   - `media_player.join` adds speakers to HomeView's AirPlay group;
   - `homeview.remove_members` removes them;
+  - `homeview.readd_members` re-sends the add for a speaker that rebooted,
+    without removing anything;
   - `homeview.set_outputs` sets the exact list of outputs.
   - The entity's `group_members` and `airplay_outputs` attributes show the
     current group.
@@ -70,6 +72,7 @@ now can be added as extra lines: `media_player.my_speaker = <output id>`
 | --- | --- | --- | --- |
 | `media_player.join` | HomeView entity | `group_members`: speaker entities | Adds the speakers to HomeView's AirPlay group. Speakers already in the group are skipped. |
 | `homeview.remove_members` | HomeView entity | `group_members`: speaker entities | Removes the speakers from HomeView's group. |
+| `homeview.readd_members` | HomeView entity | `group_members`: speaker entities | Sends the add even if HomeView still lists the speakers (for one that rebooted). Removes nothing. |
 | `homeview.set_outputs` | HomeView entity | `output_ids`: list of AirPlay output ids | Sets HomeView's outputs to exactly this list. |
 
 Example:
@@ -100,11 +103,16 @@ does that:
 - When the receiver comes back (an entity goes from `unavailable` to
   available, or an optional uptime sensor drops), and the leader is playing,
   and the receiver was in the group or left less than the grace period ago:
-  - if the leader still lists the stale receiver, it waits for the leader to
+  - it first tries `homeview.readd_members` (a direct re-add that removes
+    nothing, so the rest of the group keeps playing) and waits a few seconds
+    for the receiver to play; set "Direct re-add first" to 0 to skip this;
+  - otherwise, if the leader still lists the stale receiver, it waits for the leader to
     drop it, and only removes it itself as a fallback (removing a playing
     receiver can briefly interrupt the whole group);
   - then calls `media_player.join` until the receiver plays, up to N tries;
-  - and writes "ok" or "FAILED" to the logbook.
+  - and writes the result (direct re-add, fallback, or FAILED) to the logbook.
+
+The blueprint is optional: the integration works without it.
 
 Known limit: if you remove the receiver on purpose and it happens to reboot
 within the grace period, it is added back.
