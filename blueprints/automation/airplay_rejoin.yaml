@@ -1,0 +1,231 @@
+blueprint:
+  name: AirPlay receiver – rejoin group after reboot
+  description: >
+    Puts an AirPlay 2 receiver back into a HomeView (or any group-capable
+    media_player) group after the receiver reboots or reconnects, but only if it
+    was in the group shortly before.
+
+
+    It does two jobs: it tracks whether the receiver is in the leader's group
+    (in an input_boolean, with the time it left in an input_datetime), and when
+    the receiver comes back it re-adds it with `media_player.join`.
+
+
+    Create the two helpers first: an input_boolean, and an input_datetime with
+    both date and time. The receiver must be mapped to its AirPlay output in the
+    HomeView integration options, so that `media_player.join` can find it.
+  domain: automation
+  source_url: https://github.com/FredLiuuuu/ha-apple-homeview/blob/main/blueprints/automation/airplay_rejoin.yaml
+  input:
+    leader:
+      name: Group leader
+      description: The HomeView media_player that owns the AirPlay group.
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    receiver:
+      name: Receiver
+      description: The AirPlay receiver's media_player entity (as mapped in the HomeView options).
+      selector:
+        entity:
+          filter:
+            - domain: media_player
+    availability_entity:
+      name: Availability trigger entity
+      description: >
+        An entity that goes `unavailable` while the receiver is down and comes
+        back when it is up again (for example the receiver's own media_player,
+        or a playback-state sensor it publishes).
+      selector:
+        entity: {}
+    uptime_entities:
+      name: Uptime sensor (optional)
+      description: >
+        Optional. A numeric uptime sensor of the receiver. A drop in its value
+        is treated as a reboot even if the receiver never showed as unavailable.
+      default: []
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: sensor
+    in_group_helper:
+      name: "Helper: receiver is in the group"
+      description: An input_boolean this blueprint keeps up to date.
+      selector:
+        entity:
+          filter:
+            - domain: input_boolean
+    left_at_helper:
+      name: "Helper: time the receiver left the group"
+      description: An input_datetime (date and time) this blueprint keeps up to date.
+      selector:
+        entity:
+          filter:
+            - domain: input_datetime
+    grace_seconds:
+      name: Grace period
+      description: >
+        Re-add the receiver only if it was in the group, or left it no longer
+        than this many seconds before it came back.
+      default: 180
+      selector:
+        number:
+          min: 10
+          max: 1800
+          unit_of_measurement: s
+    settle_seconds:
+      name: Settle delay
+      description: Wait this long after the receiver comes back before acting.
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 60
+          unit_of_measurement: s
+    drop_wait_seconds:
+      name: Wait for the leader to drop the stale receiver
+      description: >
+        If the leader still lists the rebooted receiver, wait up to this long
+        for it to drop the receiver by itself before removing it. Removing a
+        receiver can briefly interrupt the other speakers in the group.
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 60
+          unit_of_measurement: s
+    tries:
+      name: Join attempts
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 10
+    play_wait_seconds:
+      name: Wait for playback after each join
+      default: 6
+      selector:
+        number:
+          min: 1
+          max: 60
+          unit_of_measurement: s
+
+mode: queued
+max: 10
+
+variables:
+  leader: !input leader
+  receiver: !input receiver
+  in_group_helper: !input in_group_helper
+  left_at_helper: !input left_at_helper
+  grace_seconds: !input grace_seconds
+  tries: !input tries
+
+trigger:
+  - platform: state
+    entity_id: !input leader
+    attribute: group_members
+    id: group_changed
+  - platform: state
+    entity_id: !input availability_entity
+    from: unavailable
+    not_to:
+      - unavailable
+      - unknown
+    id: back
+  - platform: state
+    entity_id: !input uptime_entities
+    id: uptime
+
+action:
+  - choose:
+      # ---- track membership -------------------------------------------------
+      - conditions:
+          - condition: trigger
+            id: group_changed
+        sequence:
+          - if:
+              - condition: template
+                value_template: "{{ receiver in (state_attr(leader, 'group_members') or []) }}"
+            then:
+              - service: input_boolean.turn_on
+                target:
+                  entity_id: !input in_group_helper
+            else:
+              - if:
+                  - condition: template
+                    value_template: "{{ is_state(in_group_helper, 'on') }}"
+                then:
+                  - service: input_datetime.set_datetime
+                    target:
+                      entity_id: !input left_at_helper
+                    data:
+                      timestamp: "{{ as_timestamp(now()) }}"
+                  - service: input_boolean.turn_off
+                    target:
+                      entity_id: !input in_group_helper
+    # ---- rejoin after a reboot / reconnect ----------------------------------
+    default:
+      - condition: template
+        value_template: >
+          {{ trigger.id == 'back' or (
+               trigger.from_state is not none and trigger.to_state is not none and
+               is_number(trigger.from_state.state) and is_number(trigger.to_state.state) and
+               trigger.to_state.state | float < trigger.from_state.state | float) }}
+      - condition: state
+        entity_id: !input leader
+        state: playing
+      - condition: template
+        value_template: >
+          {% set left = state_attr(left_at_helper, 'timestamp') %}
+          {{ is_state(in_group_helper, 'on') or
+             (left is number and as_timestamp(now()) - left < grace_seconds | float) }}
+      - delay:
+          seconds: !input settle_seconds
+      # Already back and playing (e.g. a second trigger for the same reboot).
+      - condition: template
+        value_template: "{{ not is_state(receiver, 'playing') }}"
+      - if:
+          - condition: template
+            value_template: "{{ receiver in (state_attr(leader, 'group_members') or []) }}"
+        then:
+          - wait_template: "{{ receiver not in (state_attr(leader, 'group_members') or []) }}"
+            timeout:
+              seconds: !input drop_wait_seconds
+            continue_on_timeout: true
+          - if:
+              - condition: template
+                value_template: "{{ receiver in (state_attr(leader, 'group_members') or []) }}"
+            then:
+              - service: homeview.remove_members
+                continue_on_error: true
+                target:
+                  entity_id: !input leader
+                data:
+                  group_members:
+                    - !input receiver
+      - repeat:
+          sequence:
+            - service: media_player.join
+              continue_on_error: true
+              target:
+                entity_id: !input leader
+              data:
+                group_members:
+                  - !input receiver
+            - wait_template: "{{ is_state(receiver, 'playing') }}"
+              timeout:
+                seconds: !input play_wait_seconds
+              continue_on_timeout: true
+          until:
+            - condition: template
+              value_template: "{{ is_state(receiver, 'playing') or repeat.index >= tries | int }}"
+      - service: logbook.log
+        data:
+          name: AirPlay rejoin
+          entity_id: !input receiver
+          message: >
+            {{ 'Re-added to the group after a drop: ok' if is_state(receiver, 'playing')
+               else 'Re-add after a drop FAILED' }}

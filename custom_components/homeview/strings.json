@@ -1,0 +1,74 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Apple HomeView",
+        "description": "Leave the host empty to search the network. Choose how to get AirPlay credentials: pair with a PIN shown on HomeView, or import credentials saved by an earlier pairing.",
+        "data": {
+          "host": "Host (optional)",
+          "method": "Credentials"
+        }
+      },
+      "pick": {
+        "title": "Choose a HomeView",
+        "data": { "identifier": "HomeView" }
+      },
+      "pair": {
+        "title": "Enter the PIN",
+        "description": "A 4-digit PIN is now shown on {name}. Enter it here.",
+        "data": { "pin": "PIN" }
+      },
+      "file": {
+        "title": "Import credentials",
+        "description": "Path to a file that holds AirPlay credentials for this HomeView (one line).",
+        "data": { "credentials_file": "Credentials file" }
+      }
+    },
+    "error": {
+      "not_found": "No HomeView found.",
+      "invalid_pin": "The PIN must be digits.",
+      "no_credentials": "No credentials found in that file.",
+      "cannot_connect": "Could not connect with these credentials.",
+      "no_remote_control": "Connected, but the remote-control channel is not available."
+    },
+    "abort": {
+      "already_configured": "This HomeView is already set up.",
+      "pairing_failed": "Could not start pairing.",
+      "invalid_pin": "Pairing failed: the PIN was rejected or expired."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "AirPlay speakers",
+        "description": "Pick the media_player entity for each AirPlay output, so media_player.join and homeview.remove_members can use it. Extra lines: entity_id = output id.",
+        "data": { "extra": "Extra mappings" }
+      }
+    }
+  },
+  "selector": {
+    "method": {
+      "options": {
+        "pair": "Pair with PIN",
+        "file": "Import from file"
+      }
+    }
+  },
+  "services": {
+    "remove_members": {
+      "name": "Remove speakers",
+      "description": "Remove AirPlay speakers from the group HomeView is playing to.",
+      "fields": {
+        "group_members": { "name": "Speakers", "description": "media_player entities mapped in the options." }
+      }
+    },
+    "set_outputs": {
+      "name": "Set outputs",
+      "description": "Set HomeView's AirPlay outputs to exactly these output-device ids.",
+      "fields": {
+        "output_ids": { "name": "Output ids", "description": "AirPlay output-device ids (see the airplay_outputs attribute)." }
+      }
+    }
+  }
+}

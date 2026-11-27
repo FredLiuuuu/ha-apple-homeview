@@ -1,0 +1,16 @@
+{
+  "domain": "homeview",
+  "name": "Apple HomeView (AirPlay)",
+  "codeowners": [
+    "@FredLiuuuu"
+  ],
+  "config_flow": true,
+  "documentation": "https://github.com/FredLiuuuu/ha-apple-homeview",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/FredLiuuuu/ha-apple-homeview/issues",
+  "requirements": [
+    "pyatv>=0.18.0"
+  ],
+  "version": "0.2.0"
+}

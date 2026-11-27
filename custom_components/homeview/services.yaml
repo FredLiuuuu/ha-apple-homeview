@@ -1,0 +1,23 @@
+remove_members:
+  target:
+    entity:
+      integration: homeview
+      domain: media_player
+  fields:
+    group_members:
+      required: true
+      selector:
+        entity:
+          domain: media_player
+          multiple: true
+set_outputs:
+  target:
+    entity:
+      integration: homeview
+      domain: media_player
+  fields:
+    output_ids:
+      required: true
+      example: '["00000000-0000-0000-0000-000000000000"]'
+      selector:
+        object:
